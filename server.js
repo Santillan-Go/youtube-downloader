@@ -24,7 +24,7 @@ app.get("/", (req, res) => {
 });
 
 // THIS WORKS- GET VIDEO INFO
-app.post("/api/info", async (req, res) => {
+app.post("/api/info2", async (req, res) => {
   const { url } = req.body;
   if (!url)
     return res.status(400).json({ error: "No se proporcionó una URL válida" });
@@ -76,6 +76,75 @@ app.post("/api/info", async (req, res) => {
       error: "No se pudo obtener la información del video.",
       details: err.message,
     });
+  }
+});
+
+app.post("/api/info", async (req, res) => {
+  const { url } = req.body;
+  if (!url)
+    return res.status(400).json({ error: "No se proporcionó una URL válida" });
+
+  try {
+    const proc = spawn("yt-dlp", [url, "--dump-json", "--no-playlist"]);
+
+    let output = "";
+    proc.stdout.on("data", (data) => {
+      output += data.toString();
+      console.log("🔹 Datos recibidos:", data.toString());
+    });
+    console.log(`🔹 ${output}`);
+    let qualities = ["MP3"];
+    let qualityAccepted = ["720p", "1080p", "1440p", "2160p"];
+    // console.log("info", info);
+
+    proc.on("close", () => {
+      let info = JSON.parse(output);
+      console.log("Información del video:", info.display_id);
+      info.formats.forEach((fmt) => {
+        if (
+          fmt.format_note &&
+          qualityAccepted.includes(fmt.format_note) &&
+          !qualities.includes(fmt.format_note)
+        ) {
+          qualities.push(fmt.format_note);
+        }
+        console.log({
+          id: fmt.format_id,
+          note: fmt.format_note,
+          resolution: fmt.resolution,
+          ext: fmt.ext,
+          vcodec: fmt.vcodec,
+          acodec: fmt.acodec,
+        });
+      });
+      console.log("Calidades disponibles:", qualities);
+      try {
+        res.json({
+          id: info.display_id || "",
+          title: info.title || "Video sin título",
+          duration: info.duration || 0,
+          uploader: info.uploader || "Desconocido",
+          view_count: info.view_count || 0,
+          upload_date: info.upload_date || "Fecha desconocida",
+          formats: info.formats || [],
+          qualities,
+          // title: info.title || "Video sin título",
+          // duration: info.duration || 0,
+          // uploader: info.uploader || "Desconocido",
+          // view_count: info.view_count || 0,
+          // upload_date: info.upload_date || "Fecha desconocida",
+          // formats: info.formats || [],
+        });
+      } catch {
+        res
+          .status(500)
+          .json({ error: "No se pudo obtener la información del video." });
+      }
+    });
+  } catch {
+    res
+      .status(500)
+      .json({ error: "No se pudo obtener la información del video." });
   }
 });
 
