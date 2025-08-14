@@ -24,7 +24,7 @@ app.get("/", (req, res) => {
 });
 
 // THIS WORKS- GET VIDEO INFO
-app.post("/api/info2", async (req, res) => {
+app.post("/api/info", async (req, res) => {
   const { url } = req.body;
   if (!url)
     return res.status(400).json({ error: "No se proporcionó una URL válida" });
@@ -81,7 +81,7 @@ app.post("/api/info2", async (req, res) => {
   }
 });
 
-app.post("/api/info", async (req, res) => {
+app.post("/api/info2", async (req, res) => {
   const { url } = req.body;
   if (!url)
     return res.status(400).json({ error: "No se proporcionó una URL válida" });
