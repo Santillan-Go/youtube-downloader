@@ -38,7 +38,7 @@ app.post("/api/info", async (req, res) => {
       preferFreeFormats: true,
       // si necesitas forzar ffmpeg:
       ffmpegLocation: "ffmpeg",
-      cookies: "/var/www/cookies.txt",
+      cookies: "/cookies.txt",
 
       // timeout: 60_000 // puedes añadir timeout si quieres
     });
