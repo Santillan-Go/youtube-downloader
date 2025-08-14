@@ -28,7 +28,7 @@ app.post("/api/info", async (req, res) => {
   const { url } = req.body;
   if (!url)
     return res.status(400).json({ error: "No se proporcionó una URL válida" });
-
+  console.log(ffmpegPath);
   try {
     // dumpSingleJson -> produce un JSON único con info (-J)
     const output = await youtubedl(url, {
@@ -37,7 +37,7 @@ app.post("/api/info", async (req, res) => {
       noCheckCertificate: true,
       preferFreeFormats: true,
       // si necesitas forzar ffmpeg:
-      ffmpegLocation: existsSync(ffmpegPath) ? ffmpegPath : undefined,
+      ffmpegLocation: "ffmpeg",
       // timeout: 60_000 // puedes añadir timeout si quieres
     });
 
@@ -57,6 +57,7 @@ app.post("/api/info", async (req, res) => {
       }
     });
 
+    console.log("Calidades disponibles:", qualities);
     res.json({
       id: info.display_id || "",
       title: info.title || "Video sin título",
@@ -68,7 +69,7 @@ app.post("/api/info", async (req, res) => {
       qualities,
     });
   } catch (err) {
-    // console.error("youtube-dl-exec error:", err);
+    console.error("youtube-dl-exec error:", err);
     res.status(500).json({
       error: "No se pudo obtener la información del video.",
       details: err.message,
