@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube Downloader Pro</title>
+<!-- add the favicon, in this case svg -->
+ <link rel="icon" type="image/svg+xml" href="/assets/Youtube.svg" />
+    <link rel="stylesheet" href="global.css" />
+  </head>
+  <body>
+    <header>
+      <a href="/" class="logo-header">
+        <img src="/assets/Youtube.svg" class="logo" alt="Youtube Logo" />
+      </a >
+      <div class="title-header">
+        <h1>Downloader</h1>
+       
+    </header>
+    <main>
+      <section class="main-content">
+        <div class="headlines">
+          <h1 class="title"><span class="mp4-label">MP4</span> Downloader</h1>
+          
+          <p class="subtitle">Pega tu link de Youtube, selecciona la calidad y dale a descargar</p>
+        </div>
+
+        <div class="controllers">
+          <div class="container">
+            <form id="downloadForm" class="download-form">
+              <div>
+                <img
+                  src="/assets/Youtube.svg"
+                  class="img-logo"
+                  alt="image_logo"
+                />
+              </div>
+              <div class="form-group">
+                <input
+                  type="url"
+                  id="urlInput"
+                  placeholder="Pega aquí la URL del video de YouTube"
+                  required
+                  spellcheck="false" 
+                />
+              </div>
+
+              <button class="next-button" >
+                <img src="/assets/Arrowright.svg" class="img-arrow" alt="" />
+                <div class="loader"></div>
+              </button>
+
+
+            </form>
+            <article class="quality-options">
+              
+            </article>
+
+            <article class="card-info-video"></article>
+
+           
+              <button id="downloadBtn" class="download-btn">Descargar</button>
+           
+<div class="status-message" id="statusMessage"></div>
+            </article>
+            <article>
+              <div class="progress-container">
+                <div class="progress-bar" id="progressBar">
+                  <span class="progress-percent" id="progressPercent">0%</span>
+                </div>
+              </div>
+
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <div>
+        <p>Desarrollado por WinkerMind </p>
+
+      </div>
+        <!-- ICONS for social media, for now just a text with <a>  -->
+         
+        
+      <div> <a href="/">Comunity</a></div>
+
+    </footer>
+
+    <script src="main.js"></script>
+  </body>
+</html>

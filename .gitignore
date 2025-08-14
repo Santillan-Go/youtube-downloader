@@ -1,0 +1,7 @@
+# Ignore ffmpeg executable
+ffmpeg.exe
+
+
+*.exe
+
+node_modules
