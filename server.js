@@ -40,7 +40,7 @@ app.post("/api/info", async (req, res) => {
       ffmpegLocation: "ffmpeg",
       cookies: "/var/www/cookies.txt",
       //  proxy: "",
-      proxy: "https://nwlsdpum:tk0fit6b2qdo@23.95.150.145:6114",
+      proxy: "http://nwlsdpum:tk0fit6b2qdo@107.172.163.27:6543",
       addHeader: ["referer:youtube.com", "user-agent:googlebot"],
 
       // timeout: 60_000 // puedes añadir timeout si quieres
