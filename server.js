@@ -39,7 +39,8 @@ app.post("/api/info", async (req, res) => {
       // si necesitas forzar ffmpeg:
       //ffmpegLocation: ffmpegPath,
       //ffmpegLocation: "ffmpeg",
-      // cookies: "/var/www/cookies_1.txt",
+      //cookies: "/var/www/cookies_1.txt",
+      cookies: "--cookies-from-browser",
       // //  proxy: "",
 
       //proxy: "http://nwlsdpum:tk0fit6b2qdo@107.172.163.27:6543",
