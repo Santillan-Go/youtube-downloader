@@ -37,11 +37,13 @@ app.post("/api/info", async (req, res) => {
       noCheckCertificate: true,
       preferFreeFormats: true,
       // si necesitas forzar ffmpeg:
-      ffmpegLocation: "ffmpeg",
-      cookies: "/var/www/cookies_1.txt",
-      //  proxy: "",
-      proxy: "http://nwlsdpum:tk0fit6b2qdo@107.172.163.27:6543",
-      addHeader: ["referer:youtube.com", "user-agent:googlebot"],
+      //ffmpegLocation: ffmpegPath,
+      //ffmpegLocation: "ffmpeg",
+      // cookies: "/var/www/cookies_1.txt",
+      // //  proxy: "",
+
+      //proxy: "http://nwlsdpum:tk0fit6b2qdo@107.172.163.27:6543",
+      // addHeader: ["referer:youtube.com", "user-agent:googlebot"],
 
       // timeout: 60_000 // puedes añadir timeout si quieres
     });
