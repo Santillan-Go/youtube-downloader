@@ -38,7 +38,7 @@ app.post("/api/info", async (req, res) => {
       preferFreeFormats: true,
       // si necesitas forzar ffmpeg:
       ffmpegLocation: "ffmpeg",
-      cookies: "/var/www/cookies.txt",
+      cookies: "/var/www/cookies_1.txt",
       //  proxy: "",
       proxy: "http://nwlsdpum:tk0fit6b2qdo@107.172.163.27:6543",
       addHeader: ["referer:youtube.com", "user-agent:googlebot"],
