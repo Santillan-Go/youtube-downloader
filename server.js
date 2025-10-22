@@ -1,7 +1,8 @@
 import express, { json } from "express";
 
-import { existsSync, mkdirSync, unlinkSync, readdirSync } from "fs";
-// import { spawn } from "child_process"; // Not needed for Vercel deployment
+import { existsSync, unlinkSync, readdirSync } from "fs";
+//mkdirSync
+//import { spawn } from "child_process"; // Not needed for Vercel deployment
 import youtubedl from "youtube-dl-exec";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -89,7 +90,7 @@ app.post("/api/info", async (req, res) => {
 app.post("/api/download", async (req, res) => {
   const { url, quality } = req.body;
   console.log({ url, quality });
-  
+
   if (!url)
     return res.status(400).json({ error: "No se proporcionó una URL válida" });
   if (!quality)
@@ -154,7 +155,6 @@ app.post("/api/download", async (req, res) => {
       filename: `${safeTitle}_${qualityLabel}`,
       title: videoInfo.title,
     });
-
   } catch (error) {
     currentProgress.isDownloading = false;
     console.error("❌ Error:", error.message);
