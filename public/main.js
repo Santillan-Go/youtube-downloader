@@ -187,16 +187,13 @@ async function startDownload(url, quality) {
     downloadBtn.disabled = true;
     downloadBtn.style.visibility = "hidden";
     downloadBtn.style.display = "none";
-    downloadBtn.style.display = "none";
-    // downloadBtn.textContent = "Descargando...";
 
-    showStatus("Iniciando descarga...", "loading");
+    showStatus("Obteniendo enlace de descarga...", "loading");
     progress_container.style.display = "block";
+
     if (typeof quality !== "string") {
       console.warn("La calidad debe ser una cadena");
       quality = `${quality}`;
-    } else {
-      console.log("quality es string");
     }
 
     const response = await fetch("/api/download", {
@@ -207,32 +204,39 @@ async function startDownload(url, quality) {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error);
+      throw new Error(errorData.error || "Error en la descarga");
     }
 
-    // Obtener nombre del archivo
-    const contentDisposition = response.headers.get("content-disposition");
-    let filename = titleFile || "download";
-    if (contentDisposition) {
-      const match = contentDisposition.match(/filename="(.+)"/);
-      if (match) filename = match[1];
+    const data = await response.json();
+
+    if (data.success && data.downloadUrl) {
+      // Create download link
+      const filename = `${data.filename || titleFile}.${
+        quality === "mp3" ? "mp3" : "mp4"
+      }`;
+
+      const a = document.createElement("a");
+      a.href = data.downloadUrl;
+      a.download = filename;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      showStatus(
+        "¡Enlace de descarga generado! La descarga debería comenzar automáticamente.",
+        "success"
+      );
+      updateProgress(100, false);
+    } else {
+      throw new Error("No se pudo generar el enlace de descarga");
     }
 
-    // Descargar archivo
-    const blob = await response.blob();
-    const url2 = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url2;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url2);
-    document.body.removeChild(a);
-
-    showStatus("¡Descarga completada!", "success");
     resetUI();
   } catch (error) {
     showStatus("Error: " + error.message, "error");
+    console.error("Download error:", error);
   } finally {
     isDownloading = false;
     downloadBtn.disabled = false;

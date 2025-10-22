@@ -1,7 +1,7 @@
 import express, { json } from "express";
 
 import { existsSync, mkdirSync, unlinkSync, readdirSync } from "fs";
-import { spawn } from "child_process";
+// import { spawn } from "child_process"; // Not needed for Vercel deployment
 import youtubedl from "youtube-dl-exec";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -13,7 +13,7 @@ app.use(express.static(join(__dirname, "public")));
 
 const PORT = process.env.PORT || 55000;
 // Ruta a ffmpeg.exe en la raíz del proyecto
-const ffmpegPath = join(__dirname, "ffmpeg.exe");
+// const ffmpegPath = join(__dirname, "ffmpeg.exe");
 
 // Estado del progreso
 let currentProgress = { percent: 0, isDownloading: false };
@@ -28,7 +28,7 @@ app.post("/api/info", async (req, res) => {
   const { url } = req.body;
   if (!url)
     return res.status(400).json({ error: "No se proporcionó una URL válida" });
-  console.log(ffmpegPath);
+  // console.log(ffmpegPath); // Commented out for Vercel deployment
   try {
     // dumpSingleJson -> produce un JSON único con info (-J)
     const output = await youtubedl(url, {
@@ -85,80 +85,11 @@ app.post("/api/info", async (req, res) => {
   }
 });
 
-app.post("/api/info2", async (req, res) => {
-  const { url } = req.body;
-  if (!url)
-    return res.status(400).json({ error: "No se proporcionó una URL válida" });
-
-  try {
-    const proc = spawn("yt-dlp", [url, "--dump-json", "--no-playlist"]);
-
-    let output = "";
-    proc.stdout.on("data", (data) => {
-      output += data.toString();
-      console.log("🔹 Datos recibidos:", data.toString());
-    });
-    console.log(`🔹 ${output}`);
-    let qualities = ["MP3"];
-    let qualityAccepted = ["720p", "1080p", "1440p", "2160p"];
-    // console.log("info", info);
-
-    proc.on("close", () => {
-      let info = JSON.parse(output);
-      console.log("Información del video:", info.display_id);
-      info.formats.forEach((fmt) => {
-        if (
-          fmt.format_note &&
-          qualityAccepted.includes(fmt.format_note) &&
-          !qualities.includes(fmt.format_note)
-        ) {
-          qualities.push(fmt.format_note);
-        }
-        console.log({
-          id: fmt.format_id,
-          note: fmt.format_note,
-          resolution: fmt.resolution,
-          ext: fmt.ext,
-          vcodec: fmt.vcodec,
-          acodec: fmt.acodec,
-        });
-      });
-      console.log("Calidades disponibles:", qualities);
-      try {
-        res.json({
-          id: info.display_id || "",
-          title: info.title || "Video sin título",
-          duration: info.duration || 0,
-          uploader: info.uploader || "Desconocido",
-          view_count: info.view_count || 0,
-          upload_date: info.upload_date || "Fecha desconocida",
-          formats: info.formats || [],
-          qualities,
-          // title: info.title || "Video sin título",
-          // duration: info.duration || 0,
-          // uploader: info.uploader || "Desconocido",
-          // view_count: info.view_count || 0,
-          // upload_date: info.upload_date || "Fecha desconocida",
-          // formats: info.formats || [],
-        });
-      } catch {
-        res
-          .status(500)
-          .json({ error: "No se pudo obtener la información del video." });
-      }
-    });
-  } catch {
-    res
-      .status(500)
-      .json({ error: "No se pudo obtener la información del video." });
-  }
-});
-
-// DOWNLOAD VIDEO WITH ffmpeg
-
+// Download endpoint using youtube-dl-exec (Vercel compatible)
 app.post("/api/download", async (req, res) => {
   const { url, quality } = req.body;
   console.log({ url, quality });
+  
   if (!url)
     return res.status(400).json({ error: "No se proporcionó una URL válida" });
   if (!quality)
@@ -167,161 +98,70 @@ app.post("/api/download", async (req, res) => {
   currentProgress = { percent: 0, isDownloading: true };
 
   try {
-    // Primero obtenemos el título para el nombre del archivo
-    const infoProc = spawn("yt-dlp", [url, "--dump-json", "--no-playlist"]);
+    // Get video info first
+    const info = await youtubedl(url, {
+      dumpSingleJson: true,
+      noWarnings: true,
+      noCheckCertificate: true,
+      preferFreeFormats: true,
+    });
 
-    let output = "";
-    for await (const chunk of infoProc.stdout) {
-      output += chunk.toString();
-    }
-    const info = JSON.parse(output);
-    const safeTitle = info.title
+    const videoInfo = typeof info === "string" ? JSON.parse(info) : info;
+    const safeTitle = videoInfo.title
       .replace(/[^\w\s.-]/gi, "")
       .trim()
       .substring(0, 100);
 
-    const downloadsDir = join(__dirname, "downloads");
-    if (!existsSync(downloadsDir)) mkdirSync(downloadsDir, { recursive: true });
-
+    // For Vercel, we'll return the direct download URL instead of downloading to server
     let format;
-    let extension = "mp4";
-    let contentType = "video/mp4";
     let qualityLabel = quality;
 
-    switch (quality) {
+    switch (quality.toLowerCase()) {
       case "mp3":
-        format = "bestaudio";
-        extension = "mp3";
-        contentType = "audio/mpeg";
-        qualityLabel = "MP3";
+        format = "bestaudio[ext=m4a]/bestaudio";
         break;
       case "720p":
-        format =
-          "bestvideo[height<=720]+bestaudio[ext=m4a]/bestvideo+bestaudio";
+        format = "bestvideo[height<=720]+bestaudio/best[height<=720]";
         break;
       case "1080p":
-        format =
-          "bestvideo[height<=1080]+bestaudio[ext=m4a]/bestvideo+bestaudio";
+        format = "bestvideo[height<=1080]+bestaudio/best[height<=1080]";
         break;
-
+      case "1440p":
       case "2k":
-        //"bestvideo[height<=1440]+bestaudio";
-        format =
-          "bestvideo[height<=1440]+bestaudio[ext=m4a]/bestvideo+bestaudio";
+        format = "bestvideo[height<=1440]+bestaudio/best[height<=1440]";
         break;
+      case "2160p":
       case "4k":
-        //bestvideo[height<=2160]+bestaudio
-        format =
-          "bestvideo[height<=2160]+bestaudio[ext=m4a]/bestvideo+bestaudio";
+        format = "bestvideo[height<=2160]+bestaudio/best[height<=2160]";
         break;
       default:
-        format =
-          "bestvideo[height<=720]+bestaudio[ext=m4a]/bestvideo+bestaudio";
+        format = "bestvideo[height<=720]+bestaudio/best[height<=720]";
     }
 
-    const fileName = `(${qualityLabel}) ${safeTitle}.${extension}`;
-    const filePath = join(downloadsDir, fileName);
-
-    const args = [
-      url,
-      "-f",
-      format,
-      "--merge-output-format",
-      "mp4",
-      // "--recode-video",
-      // "mp4",
-      "--ffmpeg-location",
-      ffmpegPath,
-      "-o",
-      filePath,
-      "--no-playlist",
-      "--no-part",
-      "--no-continue",
-    ];
-
-    if (quality === "mp3") {
-      args.push(
-        "--extract-audio",
-        "--audio-format",
-        "mp3",
-        "--audio-quality",
-        "0"
-      );
-    }
-    //THIS
-    args.push("--postprocessor-args", "-ac 2 -ar 44100");
-    console.log(`📥 Descargando: ${fileName}`);
-    console.log("🔹 Ejecutando:", args.join(" "));
-
-    const proc = spawn("yt-dlp", args);
-
-    proc.stdout.on("data", (data) => {
-      const line = data.toString();
-      process.stdout.write(line);
-      const match = line.match(/(\d+(?:\.\d+)?)%/);
-      if (match) {
-        const percent = parseFloat(match[1]);
-        if (percent > currentProgress.percent) {
-          currentProgress.percent = percent;
-        }
-      }
+    // Get the actual download URL
+    const downloadInfo = await youtubedl(url, {
+      format: format,
+      getUrl: true,
+      noWarnings: true,
     });
 
-    proc.stderr.on("data", (data) => {
-      const line = data.toString();
-      process.stdout.write(line);
-      const match = line.match(/(\d+(?:\.\d+)?)%/);
-      if (match) {
-        const percent = parseFloat(match[1]);
-        if (percent > currentProgress.percent) {
-          currentProgress.percent = percent;
-        }
-      }
+    currentProgress = { percent: 100, isDownloading: false };
+
+    // Return the download URL for client-side download
+    res.json({
+      success: true,
+      downloadUrl: Array.isArray(downloadInfo) ? downloadInfo[0] : downloadInfo,
+      filename: `${safeTitle}_${qualityLabel}`,
+      title: videoInfo.title,
     });
 
-    proc.on("error", (err) => {
-      currentProgress.isDownloading = false;
-
-      console.error("❌ Error en yt-dlp:", err);
-      return res.status(500).json({ error: "Error ejecutando yt-dlp." });
-    });
-
-    proc.on("close", () => {
-      currentProgress.percent = 100;
-      currentProgress.isDownloading = false;
-
-      console.log(`✅ Descarga finalizada: ${fileName}`);
-
-      // res.setHeader(
-      //   "Content-Disposition",
-      //   `attachment; filename="${fileName}"`
-      // );
-      // res.setHeader("Content-Type", contentType);
-      // res.setHeader("Content-Length", fs.statSync(filePath).size);
-
-      return res.sendFile(filePath, (err) => {
-        if (err) {
-          console.error("❌ Error enviando archivo:", err);
-          if (!res.headersSent) {
-            res.status(500).json({ error: "Error enviando archivo." });
-          }
-          return;
-        } else {
-          currentProgress.percent = 0;
-        }
-        setTimeout(() => {
-          if (existsSync(filePath)) unlinkSync(filePath);
-
-          //currentProgress.percent = 0;
-        }, 5000);
-      });
-    });
   } catch (error) {
     currentProgress.isDownloading = false;
-    //console.error("❌ Error:", error.message);
-    return res
-      .status(500)
-      .json({ error: "Error durante la descarga.", details: error.message });
+    console.error("❌ Error:", error.message);
+    return res.status(500).json({
+      error: "Error durante la descarga.",
+      details: error.message,
+    });
   }
 });
 
