@@ -1,12 +1,16 @@
 import express, { json } from "express";
-
+import dotenv from "dotenv";
 import { existsSync, unlinkSync, readdirSync } from "fs";
 //mkdirSync
 //import { spawn } from "child_process"; // Not needed for Vercel deployment
 import youtubedl from "youtube-dl-exec";
 import ytdl from "@distube/ytdl-core";
+import { ProxyAgent } from "undici";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 app.use(json());
@@ -14,8 +18,61 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 app.use(express.static(join(__dirname, "public")));
 
 const PORT = process.env.PORT || 55000;
-// Ruta a ffmpeg.exe en la raíz del proyecto
-// const ffmpegPath = join(__dirname, "ffmpeg.exe");
+
+// List of free proxy servers (you can add your own or use environment variables)
+const PROXY_LIST = [
+  // Add your proxy servers here if needed, format: "http://ip:port"
+  // Example: "http://proxy.example.com:8080"
+  // You can also use process.env.PROXY_URL
+];
+
+// Try to use IPv6 to avoid rate limiting
+const getRandomIPv6 = () => {
+  const randomBlock = () =>
+    Math.floor(Math.random() * 0xffff)
+      .toString(16)
+      .padStart(4, "0");
+  return `2001:4:${randomBlock()}:${randomBlock()}::${randomBlock()}`;
+};
+
+// Configure ytdl-core with custom agent to avoid bot detection
+const getYtdlOptions = () => {
+  const options = {
+    requestOptions: {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Connection: "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Ch-Ua":
+          '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+      },
+    },
+    // Use IPv6 if available
+    IPv6Block: process.env.IPV6_BLOCK || undefined,
+  };
+
+  // If proxy is available in environment variable
+  if (process.env.PROXY_URL) {
+    options.requestOptions.agent = new ProxyAgent(process.env.PROXY_URL);
+  } else if (PROXY_LIST.length > 0) {
+    // Or randomly select from proxy list
+    const randomProxy =
+      PROXY_LIST[Math.floor(Math.random() * PROXY_LIST.length)];
+    options.requestOptions.agent = new ProxyAgent(randomProxy);
+  }
+
+  return options;
+};
 
 // Estado del progreso
 let currentProgress = { percent: 0, isDownloading: false };
@@ -37,8 +94,8 @@ app.post("/api/info", async (req, res) => {
       return res.status(400).json({ error: "URL de YouTube no válida" });
     }
 
-    // Get video info using ytdl-core
-    const info = await ytdl.getInfo(url);
+    // Get video info using ytdl-core with custom headers
+    const info = await ytdl.getInfo(url, getYtdlOptions());
 
     // Extract available qualities
     let qualities = ["MP3"];
@@ -111,8 +168,8 @@ app.post("/api/download", async (req, res) => {
       return res.status(400).json({ error: "URL de YouTube no válida" });
     }
 
-    // Get video info
-    const info = await ytdl.getInfo(url);
+    // Get video info with custom headers
+    const info = await ytdl.getInfo(url, getYtdlOptions());
     const videoInfo = info.videoDetails;
 
     const safeTitle = videoInfo.title
