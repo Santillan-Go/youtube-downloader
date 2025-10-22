@@ -190,6 +190,7 @@ async function startDownload(url, quality) {
 
     showStatus("Obteniendo enlace de descarga...", "loading");
     progress_container.style.display = "block";
+    updateProgress(30, true);
 
     if (typeof quality !== "string") {
       console.warn("La calidad debe ser una cadena");
@@ -208,27 +209,37 @@ async function startDownload(url, quality) {
     }
 
     const data = await response.json();
+    updateProgress(70, true);
 
     if (data.success && data.downloadUrl) {
-      // Create download link
-      const filename = `${data.filename || titleFile}.${
-        quality === "mp3" ? "mp3" : "mp4"
-      }`;
+      // Update filename with proper extension
+      const filename =
+        data.filename || `${titleFile}.${quality === "mp3" ? "mp3" : "mp4"}`;
 
+      showStatus("¡Preparando descarga...", "loading");
+      updateProgress(90, true);
+
+      // Create download link
       const a = document.createElement("a");
       a.href = data.downloadUrl;
       a.download = filename;
       a.target = "_blank";
       a.rel = "noopener noreferrer";
+
+      // Try to trigger download
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
 
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(a);
+      }, 100);
+
+      updateProgress(100, false);
       showStatus(
-        "¡Enlace de descarga generado! La descarga debería comenzar automáticamente.",
+        "¡Descarga iniciada! El video se está descargando.",
         "success"
       );
-      updateProgress(100, false);
     } else {
       throw new Error("No se pudo generar el enlace de descarga");
     }
@@ -237,10 +248,19 @@ async function startDownload(url, quality) {
   } catch (error) {
     showStatus("Error: " + error.message, "error");
     console.error("Download error:", error);
+    progress_container.style.display = "none";
+
+    // Re-enable buttons on error
+    setTimeout(() => {
+      isDownloading = false;
+      downloadBtn.disabled = false;
+      downloadBtn.style.display = "block";
+      downloadBtn.style.visibility = "visible";
+      next_button.disabled = false;
+    }, 2000);
   } finally {
     isDownloading = false;
     downloadBtn.disabled = false;
-    downloadBtn.textContent = "🚀 Descargar";
   }
 }
 

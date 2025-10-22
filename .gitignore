@@ -5,3 +5,4 @@ ffmpeg.exe
 *.exe
 
 node_modules
+.vercel

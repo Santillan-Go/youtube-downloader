@@ -113,47 +113,73 @@ app.post("/api/download", async (req, res) => {
       .trim()
       .substring(0, 100);
 
-    // For Vercel, we'll return the direct download URL instead of downloading to server
+    // Determine format and extension based on quality
     let format;
+    let extension = "mp4";
     let qualityLabel = quality;
 
     switch (quality.toLowerCase()) {
       case "mp3":
         format = "bestaudio[ext=m4a]/bestaudio";
+        extension = "mp3";
+        qualityLabel = "MP3";
         break;
       case "720p":
-        format = "bestvideo[height<=720]+bestaudio/best[height<=720]";
+        format =
+          "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]";
         break;
       case "1080p":
-        format = "bestvideo[height<=1080]+bestaudio/best[height<=1080]";
+        format =
+          "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]";
         break;
       case "1440p":
       case "2k":
-        format = "bestvideo[height<=1440]+bestaudio/best[height<=1440]";
+        format =
+          "bestvideo[height<=1440][ext=mp4]+bestaudio[ext=m4a]/best[height<=1440][ext=mp4]/best[height<=1440]";
         break;
       case "2160p":
       case "4k":
-        format = "bestvideo[height<=2160]+bestaudio/best[height<=2160]";
+        format =
+          "bestvideo[height<=2160][ext=mp4]+bestaudio[ext=m4a]/best[height<=2160][ext=mp4]/best[height<=2160]";
         break;
       default:
-        format = "bestvideo[height<=720]+bestaudio/best[height<=720]";
+        format =
+          "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]";
     }
 
-    // Get the actual download URL
-    const downloadInfo = await youtubedl(url, {
+    const filename = `${safeTitle}_${qualityLabel}.${extension}`;
+
+    // Get the direct download URL
+    const downloadUrl = await youtubedl(url, {
       format: format,
       getUrl: true,
       noWarnings: true,
+      noCheckCertificate: true,
+      preferFreeFormats: true,
     });
 
     currentProgress = { percent: 100, isDownloading: false };
 
+    // Extract URL from response (could be array or string)
+    let finalUrl = Array.isArray(downloadUrl) ? downloadUrl[0] : downloadUrl;
+
+    // If it's a string with multiple URLs, get the first one
+    if (typeof finalUrl === "string" && finalUrl.includes("\n")) {
+      finalUrl = finalUrl.split("\n")[0].trim();
+    }
+
+    console.log(
+      "✅ Download URL generated:",
+      finalUrl.substring(0, 100) + "..."
+    );
+
     // Return the download URL for client-side download
     res.json({
       success: true,
-      downloadUrl: Array.isArray(downloadInfo) ? downloadInfo[0] : downloadInfo,
-      filename: `${safeTitle}_${qualityLabel}`,
+      downloadUrl: finalUrl,
+      filename: filename,
       title: videoInfo.title,
+      quality: qualityLabel,
     });
   } catch (error) {
     currentProgress.isDownloading = false;
