@@ -1,15 +1,17 @@
 {
   "name": "youtube-downloader",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "postinstall": "node -e \"import('youtube-dl-exec').then(m => m.default).then(ytdlp => ytdlp('--version')).catch(() => {});\""
   },
   "dependencies": {
     "express": "^4.21.2",
-    "youtube-dl-exec": "^3.0.23"
+    "youtube-dl-exec": "^3.0.23",
+    "@distube/ytdl-core": "^4.14.4"
   },
   "keywords": [],
   "author": "",

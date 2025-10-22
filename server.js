@@ -4,6 +4,7 @@ import { existsSync, unlinkSync, readdirSync } from "fs";
 //mkdirSync
 //import { spawn } from "child_process"; // Not needed for Vercel deployment
 import youtubedl from "youtube-dl-exec";
+import ytdl from "@distube/ytdl-core";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
@@ -24,61 +25,67 @@ app.get("/", (req, res) => {
   res.sendFile(join(__dirname, "public", "index.html"));
 });
 
-// THIS WORKS- GET VIDEO INFO
+// GET VIDEO INFO - Using ytdl-core (Vercel compatible)
 app.post("/api/info", async (req, res) => {
   const { url } = req.body;
   if (!url)
     return res.status(400).json({ error: "No se proporcionó una URL válida" });
-  // console.log(ffmpegPath); // Commented out for Vercel deployment
+
   try {
-    // dumpSingleJson -> produce un JSON único con info (-J)
-    const output = await youtubedl(url, {
-      dumpSingleJson: true,
-      noWarnings: true,
-      noCheckCertificate: true,
-      preferFreeFormats: true,
-      // si necesitas forzar ffmpeg:
-      //ffmpegLocation: ffmpegPath,
-      //ffmpegLocation: "ffmpeg",
-      //cookies: "/var/www/cookies_1.txt",
-      cookies: "--cookies-from-browser",
-      // //  proxy: "",
+    // Validate YouTube URL
+    if (!ytdl.validateURL(url)) {
+      return res.status(400).json({ error: "URL de YouTube no válida" });
+    }
 
-      //proxy: "http://nwlsdpum:tk0fit6b2qdo@107.172.163.27:6543",
-      // addHeader: ["referer:youtube.com", "user-agent:googlebot"],
+    // Get video info using ytdl-core
+    const info = await ytdl.getInfo(url);
 
-      // timeout: 60_000 // puedes añadir timeout si quieres
-    });
-
-    // output puede ser string (JSON) o ya objeto; parseamos de forma segura
-    const info = typeof output === "string" ? JSON.parse(output) : output;
+    // Extract available qualities
     let qualities = ["MP3"];
-    let qualityAccepted = ["720p", "1080p", "1440p", "2160p"];
-    console.log("Información del video:", info.display_id);
-    // console.log("info", info);
-    output.formats.forEach((fmt) => {
-      if (
-        fmt.format_note &&
-        qualityAccepted.includes(fmt.format_note) &&
-        !qualities.includes(fmt.format_note)
-      ) {
-        qualities.push(fmt.format_note);
+    const formats = info.formats;
+
+    // Check for video qualities
+    const qualityMap = {
+      720: "720p",
+      1080: "1080p",
+      1440: "1440p",
+      2160: "2160p",
+    };
+
+    const availableQualities = new Set();
+    formats.forEach((fmt) => {
+      if (fmt.qualityLabel) {
+        const quality = fmt.qualityLabel
+          .replace("p60", "p")
+          .replace("p50", "p");
+        if (Object.values(qualityMap).includes(quality)) {
+          availableQualities.add(quality);
+        }
       }
     });
 
+    // Add qualities in order
+    ["720p", "1080p", "1440p", "2160p"].forEach((q) => {
+      if (availableQualities.has(q)) {
+        qualities.push(q);
+      }
+    });
+
+    console.log("Información del video:", info.videoDetails.videoId);
     console.log("Calidades disponibles:", qualities);
+
     res.json({
-      id: info.display_id || "",
-      title: info.title || "Video sin título",
-      duration: info.duration || 0,
-      uploader: info.uploader || "Desconocido",
-      view_count: info.view_count || 0,
-      upload_date: info.upload_date || "Fecha desconocida",
-      formats: info.formats || [],
+      id: info.videoDetails.videoId || "",
+      title: info.videoDetails.title || "Video sin título",
+      duration: parseInt(info.videoDetails.lengthSeconds) || 0,
+      uploader: info.videoDetails.author?.name || "Desconocido",
+      view_count: parseInt(info.videoDetails.viewCount) || 0,
+      upload_date: info.videoDetails.uploadDate || "Fecha desconocida",
+      formats: formats,
       qualities,
     });
   } catch (err) {
-    console.error("youtube-dl-exec error:", err);
+    console.error("ytdl-core error:", err);
     res.status(500).json({
       error: "No se pudo obtener la información del video.",
       details: err.message,
@@ -86,7 +93,7 @@ app.post("/api/info", async (req, res) => {
   }
 });
 
-// Download endpoint using youtube-dl-exec (Vercel compatible)
+// Download endpoint using ytdl-core (Vercel compatible)
 app.post("/api/download", async (req, res) => {
   const { url, quality } = req.body;
   console.log({ url, quality });
@@ -99,84 +106,91 @@ app.post("/api/download", async (req, res) => {
   currentProgress = { percent: 0, isDownloading: true };
 
   try {
-    // Get video info first
-    const info = await youtubedl(url, {
-      dumpSingleJson: true,
-      noWarnings: true,
-      noCheckCertificate: true,
-      preferFreeFormats: true,
-    });
+    // Validate YouTube URL
+    if (!ytdl.validateURL(url)) {
+      return res.status(400).json({ error: "URL de YouTube no válida" });
+    }
 
-    const videoInfo = typeof info === "string" ? JSON.parse(info) : info;
+    // Get video info
+    const info = await ytdl.getInfo(url);
+    const videoInfo = info.videoDetails;
+
     const safeTitle = videoInfo.title
       .replace(/[^\w\s.-]/gi, "")
       .trim()
       .substring(0, 100);
 
-    // Determine format and extension based on quality
+    // Determine format based on quality
     let format;
     let extension = "mp4";
     let qualityLabel = quality;
+    let filterOptions = {};
 
     switch (quality.toLowerCase()) {
       case "mp3":
-        format = "bestaudio[ext=m4a]/bestaudio";
+        filterOptions = { quality: "highestaudio" };
         extension = "mp3";
         qualityLabel = "MP3";
         break;
       case "720p":
-        format =
-          "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]";
+        filterOptions = {
+          quality: "highestvideo",
+          filter: (format) =>
+            format.height === 720 && format.hasVideo && format.hasAudio,
+        };
         break;
       case "1080p":
-        format =
-          "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]";
+        filterOptions = {
+          quality: "highestvideo",
+          filter: (format) =>
+            format.height === 1080 && format.hasVideo && format.hasAudio,
+        };
         break;
       case "1440p":
       case "2k":
-        format =
-          "bestvideo[height<=1440][ext=mp4]+bestaudio[ext=m4a]/best[height<=1440][ext=mp4]/best[height<=1440]";
+        filterOptions = {
+          quality: "highestvideo",
+          filter: (format) =>
+            format.height === 1440 && format.hasVideo && format.hasAudio,
+        };
         break;
       case "2160p":
       case "4k":
-        format =
-          "bestvideo[height<=2160][ext=mp4]+bestaudio[ext=m4a]/best[height<=2160][ext=mp4]/best[height<=2160]";
+        filterOptions = {
+          quality: "highestvideo",
+          filter: (format) =>
+            format.height === 2160 && format.hasVideo && format.hasAudio,
+        };
         break;
       default:
-        format =
-          "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]";
+        filterOptions = { quality: "highest" };
     }
 
-    const filename = `${safeTitle}_${qualityLabel}.${extension}`;
+    // Get the best format matching the quality
+    const formats = ytdl.filterFormats(
+      info.formats,
+      filterOptions.filter ? filterOptions : filterOptions.quality
+    );
 
-    // Get the direct download URL
-    const downloadUrl = await youtubedl(url, {
-      format: format,
-      getUrl: true,
-      noWarnings: true,
-      noCheckCertificate: true,
-      preferFreeFormats: true,
-    });
+    if (!formats || formats.length === 0) {
+      return res.status(404).json({
+        error: "No se encontró un formato compatible para esta calidad",
+        details: "Intenta con otra calidad",
+      });
+    }
+
+    const selectedFormat = formats[0];
+    const downloadUrl = selectedFormat.url;
+    const filename = `${safeTitle}_${qualityLabel}.${extension}`;
 
     currentProgress = { percent: 100, isDownloading: false };
 
-    // Extract URL from response (could be array or string)
-    let finalUrl = Array.isArray(downloadUrl) ? downloadUrl[0] : downloadUrl;
-
-    // If it's a string with multiple URLs, get the first one
-    if (typeof finalUrl === "string" && finalUrl.includes("\n")) {
-      finalUrl = finalUrl.split("\n")[0].trim();
-    }
-
-    console.log(
-      "✅ Download URL generated:",
-      finalUrl.substring(0, 100) + "..."
-    );
+    console.log("✅ Download URL generated for quality:", quality);
 
     // Return the download URL for client-side download
     res.json({
       success: true,
-      downloadUrl: finalUrl,
+      downloadUrl: downloadUrl,
       filename: filename,
       title: videoInfo.title,
       quality: qualityLabel,
